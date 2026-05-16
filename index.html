@@ -1338,14 +1338,16 @@
     hideFormMsg();
 
     try {
-      const dateKey = viewYear+'-'+viewMonth+'-'+document.getElementById('selectedDateLabel').textContent.split(' ')[0];
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dateKey, date, name, phone, service, time, address, detail })
+      const dateKey = viewYear+'-'+viewMonth+'-'+date.split(' ')[0];
+      // ใช้ Google Forms URL format ที่ทำงานกับ Apps Script ได้
+      const params = new URLSearchParams({
+        dateKey, date, name, phone, service, time, address,
+        detail: detail || '-'
       });
-      // no-cors = สำเร็จเสมอ
+      await fetch(APPS_SCRIPT_URL + '?' + params.toString(), {
+        method: 'GET',
+        mode: 'no-cors'
+      });
       if (true) {
         document.getElementById('bookingForm').classList.remove('visible');
         if (selectedCell) { selectedCell.classList.remove('selected'); selectedCell = null; }
