@@ -1408,28 +1408,42 @@
   let closedDates = new Set();
   let isAdminMode = false;
 
-  // โหลดวันปิดและข้อมูลคิวจาก Apps Script
-  let slotsData = {}; // { 'YYYY-M-D': remainingSlots }
+  // โหลดวันปิดและข้อมูลคิวจาก Apps Script ผ่าน JSONP
+  let slotsData = {};
 
-  async function loadClosedDates() {
-    try {
-      const now = new Date();
-      const [r1, r2] = await Promise.all([
-        fetch(APPS_SCRIPT_URL + '?action=getClosedDates').then(r => r.json()),
-        fetch(APPS_SCRIPT_URL + '?action=getSlots&year=' + now.getFullYear() + '&month=' + now.getMonth()).then(r => r.json())
-      ]);
-      if (r1.dates) { closedDates = new Set(r1.dates); }
-      if (r2.slots) { slotsData = r2.slots; }
-      renderCalendar();
-    } catch(e) { /* ข้ามถ้าโหลดไม่ได้ */ }
+  function jsonp(url, callback) {
+    const cbName = 'cb_' + Date.now();
+    window[cbName] = function(data) {
+      delete window[cbName];
+      document.head.removeChild(script);
+      callback(data);
+    };
+    const script = document.createElement('script');
+    script.src = url + '&callback=' + cbName;
+    document.head.appendChild(script);
   }
 
-  async function loadSlotsForMonth(year, month) {
-    try {
-      const res = await fetch(APPS_SCRIPT_URL + '?action=getSlots&year=' + year + '&month=' + month);
-      const data = await res.json();
-      if (data.slots) { slotsData = {...slotsData, ...data.slots}; }
-    } catch(e) {}
+  function loadClosedDates() {
+    const now = new Date();
+    fetch(APPS_SCRIPT_URL + '?action=getClosedDates')
+      .then(r => r.json())
+      .then(r1 => {
+        if (r1.dates) { closedDates = new Set(r1.dates); }
+        return fetch(APPS_SCRIPT_URL + '?action=getSlots&year=' + now.getFullYear() + '&month=' + now.getMonth());
+      })
+      .then(r => r.json())
+      .then(r2 => {
+        if (r2.slots) { slotsData = r2.slots; }
+        renderCalendar();
+      })
+      .catch(() => renderCalendar());
+  }
+
+  function loadSlotsForMonth(year, month) {
+    return fetch(APPS_SCRIPT_URL + '?action=getSlots&year=' + year + '&month=' + month)
+      .then(r => r.json())
+      .then(data => { if (data.slots) { slotsData = {...slotsData, ...data.slots}; } })
+      .catch(() => {});
   }
 
   async function toggleClosedDate(year, month, day) {
