@@ -1513,6 +1513,28 @@
     renderCalendar();
   }
 
+  // Admin slot input modal
+  function showSlotInput(year, month, day) {
+    const key = year + '-' + month + '-' + day;
+    const cur = slotsData[key] !== undefined ? slotsData[key] : DEFAULT_SLOTS;
+    const val = prompt('วันที่ ' + day + ' ' + thaiMonths[month] + ' ' + (year+543) + '\nตั้งจำนวนคิว (0 = ปิดวัน):', cur);
+    if (val === null) return;
+    const num = parseInt(val);
+    if (isNaN(num) || num < 0) { alert('กรุณาใส่ตัวเลข 0 ขึ้นไป'); return; }
+    slotsData[key] = num;
+    // บันทึกลง localStorage
+    try { localStorage.setItem('slotsData', JSON.stringify(slotsData)); } catch(e) {}
+    if (num === 0) {
+      closedDates.add(key);
+      try { localStorage.setItem('closedDates', JSON.stringify([...closedDates])); } catch(e) {}
+    } else {
+      closedDates.delete(key);
+      try { localStorage.setItem('closedDates', JSON.stringify([...closedDates])); } catch(e) {}
+    }
+    renderCalendar();
+    showToast('✅ บันทึกคิววันที่ ' + day + ' ' + thaiMonths[month] + ' = ' + num + ' คิว', '#00C6FF');
+  }
+
   document.getElementById('adminLogoutBtn').addEventListener('click', () => {
     isAdminMode = false;
     document.getElementById('adminBar').classList.remove('visible');
@@ -1559,11 +1581,10 @@
           cell.className = s === 0 ? 'cal-cell booked' : 'cal-cell available';
           cell.innerHTML = d + '<div class="slots-badge">' + (s === 0 ? 'เต็ม' : 'ว่าง ' + s + ' ช่วง') + '</div>';
         }
-        cell.title = isClosed ? 'คลิกเพื่อเปิดวันนี้' : 'คลิกเพื่อปิดวันนี้';
+        cell.title = 'คลิกเพื่อตั้งจำนวนคิว';
         cell.style.cursor = 'pointer';
         cell.addEventListener('click', () => {
-          toggleClosedDate(viewYear, viewMonth, d);
-          showToast(isClosed ? '✅ เปิดวัน ' + d + ' ' + thaiMonths[viewMonth] + ' แล้ว' : '🔴 ปิดวัน ' + d + ' ' + thaiMonths[viewMonth] + ' แล้ว', isClosed ? '#00C6FF' : '#FF6B35');
+          showSlotInput(viewYear, viewMonth, d);
         });
       } else {
         // Normal mode
@@ -1583,6 +1604,13 @@
     }
   }
 
+  // โหลดจาก localStorage ก่อน (เร็วกว่า)
+  try {
+    const savedSlots = localStorage.getItem('slotsData');
+    const savedClosed = localStorage.getItem('closedDates');
+    if (savedSlots) slotsData = JSON.parse(savedSlots);
+    if (savedClosed) closedDates = new Set(JSON.parse(savedClosed));
+  } catch(e) {}
   loadClosedDates();
   renderCalendar();
 </script>
