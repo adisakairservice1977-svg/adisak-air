@@ -1139,7 +1139,7 @@
         <div class="contact-icon">📧</div>
         <div class="contact-detail">
           <h4>อีเมล</h4>
-          <p>adisakair.service1977@gmail.com</p>
+          <p>service@arcticpro.co.th</p>
         </div>
       </div>
       <div class="contact-item">
@@ -1224,16 +1224,14 @@
   let selectedCell = null;
 
   // Generate availability: random slots for each day
+  const DEFAULT_SLOTS = 4;
+
   function getAvailability(year, month, day) {
     const d = new Date(year, month, day);
-    const dow = d.getDay();
-    if (dow === 0) return 0; // Sunday closed
-    const seed = year * 10000 + month * 100 + day;
-    const r = ((seed * 1103515245) & 0x7fffffff) % 100;
-    if (r < 25) return 0;   // booked
-    if (r < 55) return 2;
-    if (r < 80) return 3;
-    return 4;
+    if (d.getDay() === 0) return 0; // Sunday closed
+    const key = year + '-' + month + '-' + day;
+    if (slotsData[key] !== undefined) return parseInt(slotsData[key]);
+    return DEFAULT_SLOTS;
   }
 
   function renderCalendar() {
@@ -1291,7 +1289,7 @@
     if (viewMonth < 0) { viewMonth = 11; viewYear--; }
     selectedCell = null;
     document.getElementById('bookingForm').classList.remove('visible');
-    renderCalendar();
+    loadSlotsForMonth(viewYear, viewMonth).then(renderCalendar);
   });
 
   document.getElementById('nextMonth').addEventListener('click', () => {
@@ -1299,7 +1297,7 @@
     if (viewMonth > 11) { viewMonth = 0; viewYear++; }
     selectedCell = null;
     document.getElementById('bookingForm').classList.remove('visible');
-    renderCalendar();
+    loadSlotsForMonth(viewYear, viewMonth).then(renderCalendar);
   });
 
   // ═══════════════════════════════════════════════
@@ -1340,6 +1338,13 @@
     hideFormMsg();
 
     try {
+      // ส่งข้อมูลไปหัก slot ใน Google Sheets ด้วย
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: viewYear+'-'+viewMonth+'-'+parseInt(date), name, phone, service, time, address, detail })
+      }).catch(()=>{});
+
       const res = await fetch('https://formspree.io/f/mkoewjza', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1353,6 +1358,11 @@
         document.getElementById('bookingForm').classList.remove('visible');
         if (selectedCell) { selectedCell.classList.remove('selected'); selectedCell = null; }
         clearForm();
+        // อัปเดต slots ในหน้านี้ทันที
+        const today = document.getElementById('selectedDateLabel').textContent;
+        const dKey = viewYear+'-'+viewMonth+'-'+parseInt(document.getElementById('selectedDateLabel').textContent);
+        const cur = slotsData[dKey] !== undefined ? parseInt(slotsData[dKey]) : DEFAULT_SLOTS;
+        slotsData[dKey] = Math.max(0, cur - 1);
         showToast('✅ จองสำเร็จ! เราจะติดต่อกลับภายใน 30 นาที', '#00C6FF');
       } else {
         showFormMsg('❌ เกิดข้อผิดพลาด กรุณาลองใหม่', '#FF6B35');
@@ -1404,17 +1414,28 @@
   let closedDates = new Set();
   let isAdminMode = false;
 
-  // โหลดวันปิดจาก Apps Script (ถ้าตั้งค่าแล้ว)
+  // โหลดวันปิดและข้อมูลคิวจาก Apps Script
+  let slotsData = {}; // { 'YYYY-M-D': remainingSlots }
+
   async function loadClosedDates() {
-    if (APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
     try {
-      const res = await fetch(APPS_SCRIPT_URL + '?action=getClosedDates');
-      const data = await res.json();
-      if (data.dates) {
-        closedDates = new Set(data.dates);
-        renderCalendar();
-      }
+      const now = new Date();
+      const [r1, r2] = await Promise.all([
+        fetch(APPS_SCRIPT_URL + '?action=getClosedDates').then(r => r.json()),
+        fetch(APPS_SCRIPT_URL + '?action=getSlots&year=' + now.getFullYear() + '&month=' + now.getMonth()).then(r => r.json())
+      ]);
+      if (r1.dates) { closedDates = new Set(r1.dates); }
+      if (r2.slots) { slotsData = r2.slots; }
+      renderCalendar();
     } catch(e) { /* ข้ามถ้าโหลดไม่ได้ */ }
+  }
+
+  async function loadSlotsForMonth(year, month) {
+    try {
+      const res = await fetch(APPS_SCRIPT_URL + '?action=getSlots&year=' + year + '&month=' + month);
+      const data = await res.json();
+      if (data.slots) { slotsData = {...slotsData, ...data.slots}; }
+    } catch(e) {}
   }
 
   async function toggleClosedDate(year, month, day) {
