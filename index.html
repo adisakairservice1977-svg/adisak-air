@@ -1338,23 +1338,15 @@
     hideFormMsg();
 
     try {
-      // ส่งข้อมูลไปหัก slot ใน Google Sheets ด้วย
-      fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: viewYear+'-'+viewMonth+'-'+parseInt(date), name, phone, service, time, address, detail })
-      }).catch(()=>{});
-
-      const res = await fetch('https://formspree.io/f/mkoewjza', {
+      const dateKey = viewYear+'-'+viewMonth+'-'+document.getElementById('selectedDateLabel').textContent.split(' ')[0];
+      await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          'วันนัด': date, 'ชื่อ': name, 'เบอร์โทร': phone,
-          'บริการ': service, 'เวลา': time, 'ที่อยู่': address,
-          'รายละเอียด': detail || '-'
-        })
+        body: JSON.stringify({ dateKey, date, name, phone, service, time, address, detail })
       });
-      if (res.ok) {
+      // no-cors = สำเร็จเสมอ
+      if (true) {
         document.getElementById('bookingForm').classList.remove('visible');
         if (selectedCell) { selectedCell.classList.remove('selected'); selectedCell = null; }
         clearForm();
