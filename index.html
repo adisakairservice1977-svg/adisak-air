@@ -1338,7 +1338,7 @@
     hideFormMsg();
 
     try {
-      const dateKey = viewYear+'-'+viewMonth+'-'+date.split(' ')[0];
+      const dateKey = viewYear+'-'+viewMonth+'-'+parseInt(date.split(' ')[0]);
       // ใช้ Google Forms URL format ที่ทำงานกับ Apps Script ได้
       const params = new URLSearchParams({
         dateKey, date, name, phone, service, time, address,
